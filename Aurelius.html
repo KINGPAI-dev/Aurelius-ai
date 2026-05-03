@@ -257,52 +257,161 @@
             <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-2xl">
                 📸
             </div>
+```html
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aurelius Leonore - Developer Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0a0a0c; color: #e4e4e7; }
+        .dev-font { font-family: 'Fira Code', monospace; }
+        .glass-header { background: rgba(18, 18, 22, 0.8); backdrop-filter: blur(12px); border-bottom: 1px solid #27272a; }
+        .chat-bubble { max-width: 85%; animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; }
+        .neon-border { border: 1px solid #3b82f6; box-shadow: 0 0 10px rgba(59, 130, 246, 0.2); }
+        .dev-panel { background: #000; border-top: 1px solid #27272a; height: 120px; overflow-y: auto; font-size: 10px; color: #10b981; padding: 10px; }
+    </style>
+
+    <script type="module">
+        import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+
+        let engine;
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const statusText = document.getElementById('status-text');
+        const progressBar = document.getElementById('progress-bar');
+        const progressContainer = document.getElementById('progress-container');
+        const devLog = document.getElementById('dev-log');
+
+        const selectedModel = "Llama-3.2-1B-Instruct-q4f16_1-MLC";
+
+        function logToDev(msg) {
+            const time = new Date().toLocaleTimeString();
+            devLog.innerHTML += `<div><span class="text-gray-500">[${time}]</span> <span class="text-blue-400">DEBUG:</span> ${msg}</div>`;
+            devLog.scrollTop = devLog.scrollHeight;
+        }
+
+        async function initAI() {
+            try {
+                logToDev("Initializing Leonore Engine...");
+                statusText.innerText = "SYSTEM_CONNECTING...";
+                
+                engine = await webllm.CreateMLCEngine(selectedModel, {
+                    initProgressCallback: (report) => {
+                        const progress = Math.round(report.progress * 100);
+                        progressBar.style.width = progress + "%";
+                        statusText.innerText = `LOADING_CORE: ${progress}%`;
+                        logToDev(`Downloading shard: ${report.text}`);
+                        
+                        if (progress >= 100) {
+                            setTimeout(() => {
+                                progressContainer.style.display = 'none';
+                                statusText.innerHTML = '<span class="text-blue-400 font-bold">● ONLINE (LEONORE_V1)</span>';
+                                sendBtn.disabled = false;
+                                logToDev("All modules loaded. Local AI is ready.");
+                            }, 1000);
+                        }
+                    }
+                });
+            } catch (err) {
+                statusText.innerText = "CRITICAL_ERROR";
+                logToDev("ERROR: Failed to hook WebGPU. Check chrome://flags.");
+                console.error(err);
+            }
+        }
+
+        async function handleSend() {
+            const text = userInput.value.trim();
+            if (!text || !engine) return;
+
+            logToDev(`Input received: "${text}"`);
+            appendMessage('user', text);
+            userInput.value = "";
+            sendBtn.disabled = true;
+
+            const aiMsgDiv = appendMessage('ai', "Thinking...");
+            logToDev("Generating completion via Local GPU...");
+            
+            try {
+                const messages = [{ role: "user", content: text }];
+                let fullResponse = "";
+                const chunks = await engine.chat.completions.create({ messages, stream: true });
+
+                for await (const chunk of chunks) {
+                    const content = chunk.choices[0]?.delta?.content || "";
+                    fullResponse += content;
+                    aiMsgDiv.innerText = fullResponse;
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+                logToDev("Response stream completed successfully.");
+            } catch (err) {
+                logToDev(`CRITICAL: Generation failed - ${err.message}`);
+                aiMsgDiv.innerText = "SYSTEM_ERROR: Check console.";
+            } finally {
+                sendBtn.disabled = false;
+            }
+        }
+
+        function appendMessage(role, text) {
+            const msgWrapper = document.createElement('div');
+            msgWrapper.className = `flex flex-col ${role === 'user' ? 'items-end' : 'items-start'}`;
+            msgWrapper.innerHTML = `
+                <span class="text-[9px] font-bold text-gray-500 mb-1 px-2 tracking-tighter dev-font">${role === 'user' ? 'AUTH_USER' : 'LEONORE_AI'}</span>
+                <div class="chat-bubble p-4 rounded-xl ${role === 'user' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-[#1c1c21] text-gray-200 border border-[#2d2d35] rounded-tl-none'}">
+                    <div class="text-sm leading-relaxed">${text}</div>
+                </div>
+            `;
+            chatContainer.appendChild(msgWrapper);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return msgWrapper.querySelector('.text-sm');
+        }
+
+        sendBtn.addEventListener('click', handleSend);
+        userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSend(); });
+        window.onload = initAI;
+    </script>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <header class="glass-header px-6 py-4 flex justify-between items-center shadow-lg">
+        <div class="flex items-center gap-4">
+            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-700 rounded-lg flex items-center justify-center text-white font-black shadow-lg neon-border">L</div>
             <div>
-                <h2 class="font-bold text-gray-800">Siap Periksa Tugas!</h2>
-                <p class="text-sm text-gray-500 max-w-xs mx-auto">Sekarang kamu bisa kirim foto tugas. Klik ikon kamera di bawah untuk mulai.</p>
+                <h1 class="text-sm font-bold tracking-tighter dev-font text-blue-400">AURELIUS // LEONORE</h1>
+                <div id="status-text" class="text-[9px] font-medium text-gray-500 dev-font tracking-widest">BOOTING_UP...</div>
             </div>
         </div>
-    </main>
+        <div class="text-[10px] dev-font text-gray-600">v1.2.0-stable</div>
+    </header>
 
-    <div id="typing-area" class="px-8 py-2 hidden">
-        <div class="typing-indicator flex gap-1">
-            <span></span><span></span><span></span>
+    <div id="progress-container" class="bg-[#0f0f12] px-6 py-2 border-b border-[#27272a]">
+        <div class="w-full bg-[#1c1c21] rounded-full h-1 overflow-hidden">
+            <div id="progress-bar" class="bg-blue-500 h-full transition-all duration-300" style="width: 0%"></div>
         </div>
     </div>
 
-    <!-- Image Preview Area -->
-    <div id="image-preview-container" class="px-6 py-2 bg-white flex items-center gap-3">
-        <div class="relative inline-block">
-            <img id="image-preview" src="" class="h-20 w-20 object-cover rounded-lg border-2 border-blue-500">
-            <button id="remove-image" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg hover:bg-red-600 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-            </button>
-        </div>
-        <div class="text-xs text-gray-400">Siap dianalisis Aurelius</div>
+    <main id="chat-container" class="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar bg-[#0a0a0c]"></main>
+
+    <!-- Developer Log Panel -->
+    <div id="dev-log" class="dev-panel dev-font custom-scrollbar border-t border-[#27272a]">
+        <div><span class="text-gray-500">[*]</span> System kernel initialized. Ready for Leonore injection.</div>
     </div>
 
-    <footer class="p-6 bg-white border-t border-gray-100">
-        <div class="max-w-4xl mx-auto relative flex items-end gap-2 bg-gray-50 rounded-2xl p-2 border border-gray-200 focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-50 transition-all">
-            
-            <!-- Hidden File Input -->
-            <input type="file" id="file-input" accept="image/*" class="hidden">
-            
-            <!-- Kamera Button -->
-            <button onclick="document.getElementById('file-input').click()" class="p-3 text-gray-400 hover:text-blue-600 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
-            </button>
-
-            <textarea id="user-input" rows="1" placeholder="Tanya soal foto tugasmu..." 
-                      class="flex-1 bg-transparent border-none focus:ring-0 resize-none py-3 px-2 text-sm max-h-32 custom-scrollbar"></textarea>
-            
-            <button id="send-btn" disabled 
-                    class="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 transition-all shadow-md shadow-blue-100">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+    <footer class="p-4 bg-[#121216] border-t border-[#27272a]">
+        <div class="max-w-4xl mx-auto flex gap-2 bg-[#0a0a0c] rounded-lg p-1 border border-[#2d2d35] focus-within:border-blue-500 transition-all">
+            <input type="text" id="user-input" placeholder="Execute command or ask query..." 
+                   class="flex-1 bg-transparent border-none focus:ring-0 py-3 px-4 text-sm dev-font text-gray-300">
+            <button id="send-btn" disabled class="bg-blue-600 text-white px-5 py-2 rounded-md hover:bg-blue-700 disabled:bg-[#1c1c21] disabled:text-gray-600 transition-all text-xs font-bold dev-font">
+                SEND
             </button>
         </div>
-        <p class="text-[10px] text-center text-gray-400 mt-4 tracking-tight uppercase font-semibold">
-            Llama-3.2-Vision • Full Offline Vision Capability
-        </p>
     </footer>
 
 </body>
